@@ -1,23 +1,22 @@
-// Keeps a running total of all posts seen across sites.
-// Persists the count in chrome.storage.local.
 
-
-// Initialize counter
 let totalCount = 0;
 
-// Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "increment") {
-    // Add the number of new posts detected
-    totalCount += msg.count;
+  console.log("[Background] Message received:", msg);
 
-    // Save updated total to storage
-    chrome.storage.local.set({ totalCount });
+  if (msg.type === "increment") {
+    totalCount += msg.count;
+    console.log(`[Background] Incremented by ${msg.count}. New total: ${totalCount}`);
+
+    chrome.storage.local.set({ totalCount }, () => {
+      console.log("[Background] Saved totalCount to storage:", totalCount);
+    });
   }
 });
 
-// Reset counter when extension is first installed
 chrome.runtime.onInstalled.addListener(() => {
   totalCount = 0;
-  chrome.storage.local.set({ totalCount: 0 });
+  chrome.storage.local.set({ totalCount: 0 }, () => {
+    console.log("[Background] Extension installed, counter reset.");
+  });
 });
