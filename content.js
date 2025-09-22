@@ -4,7 +4,7 @@ const siteSelectors = {
   "linkedin.com": "div.feed-shared-update-v2, div.feed-shared-news-module",
   "quora.com": "div.q-box.qu-mb--tiny",
   "reddit.com": "div[data-testid='post-container']",
-  "twitter.com": "article"
+  "x.com": "article"
 };
 
 function getSelector() {
