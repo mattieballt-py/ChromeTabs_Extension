@@ -1,9 +1,28 @@
 {
     "manifest_version": 3,
     "version": "1.0",
-    "name": "Leads tracker",
+    "name": "Content Tracker",
     "action": {
         "default_popup": "index.html",
         "default_icon": "icon.png"
-    }
+    },
+    "description": "Tracks the number of posts you consume.",
+    "permissions": ["storage", "activeTab", "scripting"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+    {
+        "matches": [
+        "*://*.youtube.com/*",
+        "*://*.instagram.com/*",
+        "*://*.linkedin.com/*",
+        "*://*.quora.com/*",
+        "*://*.reddit.com/*",
+        "*://*.x.com/*"
+        ],
+    "js": ["content.js"]
+  }
+]
 }
+
