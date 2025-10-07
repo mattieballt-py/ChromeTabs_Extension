@@ -3,17 +3,19 @@
     "version": "1.0",
     "name": "Content Tracker",
     "action": {
-        "default_icon": "icon.png"
+        "default_icon": "icon.png",
+        "default_popup": "index.html"
     },
     "description": "Tracks the number of posts you consume.",
-    "permissions": ["windows", "storage", "activeTab", "scripting", "tabs"],
+    "permissions": ["windows", "storage", "activeTab", "scripting", "tabs", "storage"],
     "background": {
         "service_worker": "background.js"
     },
     "content_scripts": [
         {
             "matches": ["<all_urls>"],
-            "js": ["content.js"]
+            "js": ["contentScript.js"],
+            "css": ["mask.css"]
         }
     ],
     "web_accessible_resources": [

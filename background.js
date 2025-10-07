@@ -10,19 +10,21 @@ chrome.action.onClicked.addListener(() => {
 
 let totalCount = 0;
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  console.log("[Background] Message received:", msg);
-
-  if (msg.type === "increment") {
-    totalCount += msg.count;
-    console.log(`[Background] Incremented by ${msg.count}. New total: ${totalCount}`);
-
-    chrome.storage.local.set({ totalCount }, () => {
-      console.log("[Background] Saved totalCount to storage:", totalCount);
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "increment") {
+    chrome.storage.local.get(["count"], (result) => {
+      const current = result.count || 0;
+      const newCount = current + (message.count || 1);
+      chrome.storage.local.set({ count: newCount }, () => {
+        console.log(`[BG][DEBUG] Incremented count to ${newCount}`);
+        if (sendResponse) sendResponse({ success: true, count: newCount });
+      });
     });
+    return true;
   }
+  // Always call sendResponse for other messages too
+  if (sendResponse) sendResponse({});
 });
-
 chrome.runtime.onInstalled.addListener(() => {
   totalCount = 0;
   chrome.storage.local.set({ totalCount: 0 }, () => {
