@@ -1,3 +1,12 @@
+// Open persistent floating window when extension icon is clicked
+chrome.action.onClicked.addListener(() => {
+  chrome.windows.create({
+    url: chrome.runtime.getURL("panel.html"),
+    type: "popup",
+    width: 400,
+    height: 600
+  });
+});
 
 let totalCount = 0;
 

@@ -3,26 +3,24 @@
     "version": "1.0",
     "name": "Content Tracker",
     "action": {
-        "default_popup": "index.html",
         "default_icon": "icon.png"
     },
     "description": "Tracks the number of posts you consume.",
-    "permissions": ["storage", "activeTab", "scripting"],
+    "permissions": ["windows", "storage", "activeTab", "scripting", "tabs"],
     "background": {
         "service_worker": "background.js"
     },
     "content_scripts": [
-    {
-        "matches": [
-        "*://*.youtube.com/*",
-        "*://*.instagram.com/*",
-        "*://*.linkedin.com/*",
-        "*://*.quora.com/*",
-        "*://*.reddit.com/*",
-        "*://*.x.com/*"
-        ],
-    "js": ["content.js"]
-  }
-]
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["panel.html", "panel.js", "index.css"],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }
 

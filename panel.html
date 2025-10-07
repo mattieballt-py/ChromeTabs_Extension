@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Content Tracker</title>
+    <title>Content Tracker Panel</title>
+    <link rel="stylesheet" href="index.css">
     <style>
       body {
         font-family: Arial, sans-serif;
         padding: 15px;
-        width: 220px;
+        width: 100%;
+        box-sizing: border-box;
       }
       h2 {
         margin: 0 0 10px 0;
@@ -35,7 +37,6 @@
     <h2>Content Consumed</h2>
     <p id="count">Loading...</p>
     <button id="reset">Reset Count</button>
-
-  <!-- popup.js removed: functionality moved to panel.js/panel.html -->
+    <script src="panel.js"></script>
   </body>
 </html>

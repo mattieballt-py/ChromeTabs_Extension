@@ -1,98 +1,103 @@
-// Tracks total content viewed:
-// 1. Feed posts (Reddit, X/Twitter, LinkedIn, Quora, Instagram)
-// 2. Videos (YouTube, Instagram, etc.)
-// Each new post or video counts as +1
+
+
 
 // --- 1. SITE SELECTORS ---
-
-// CSS selectors for posts/content for each site
 const siteSelectors = {
-  "youtube.com": "ytd-video-renderer, ytd-grid-video-renderer",
-  "instagram.com": "article div._aagw",
-  "linkedin.com": "div.feed-shared-update-v2, div.feed-shared-news-module",
-  "quora.com": "div.q-box.qu-mb--tiny",
-  "reddit.com": "div[data-testid='post-container']",
-  "x.com": "article" // formerly twitter.com
+	"youtube.com": "ytd-video-renderer, ytd-grid-video-renderer",
+	"instagram.com": "article section > main article, article div._aagw, article[role='presentation']",
+	"linkedin.com": "div.feed-shared-update-v2, div.feed-shared-news-module",
+	"quora.com": "div.q-box.qu-mb--tiny",
+	"reddit.com": "div[data-testid='post-container']",
+	"x.com": "article", // formerly twitter.com
+	"twitter.com": "article"
 };
 
-// Determine which selector applies to the current site
 function getSiteSelector() {
-  const host = window.location.hostname;
-  for (const domain in siteSelectors) {
-    if (host.includes(domain)) {
-      console.log("[Content Tracker] Using selector for:", domain);
-      return siteSelectors[domain];
-    }
-  }
-  console.log("[Content Tracker] No selector found for:", host);
-  return null;
+	const host = window.location.hostname;
+	for (const domain in siteSelectors) {
+		if (host.includes(domain)) {
+			console.log(`[ContentTracker] Using selector for ${domain}: ${siteSelectors[domain]}`);
+			return siteSelectors[domain];
+		}
+	}
+	console.log(`[ContentTracker] No selector found for ${host}`);
+	return null;
 }
 
-// Track feed posts already counted
 const seenPosts = new WeakSet();
 
-// --- 2. FUNCTION: COUNT NEW FEED POSTS ---
 function checkNewPosts() {
-  const selector = getSiteSelector();
-  if (!selector) return;
-
-  const posts = document.querySelectorAll(selector);
-  let newCount = 0;
-
-  posts.forEach((post) => {
-    if (!seenPosts.has(post)) {
-      seenPosts.add(post);
-      newCount++;
-    }
-  });
-
-  if (newCount > 0) {
-    console.log(`[Content Tracker] ${newCount} new feed posts detected. Incrementing counter.`);
-    chrome.runtime.sendMessage({ type: "increment", count: newCount });
-  }
+	const selector = getSiteSelector();
+	if (!selector) {
+		console.log('[ContentTracker] No selector, skipping check.');
+		return;
+	}
+	const posts = document.querySelectorAll(selector);
+	let newCount = 0;
+	posts.forEach((post) => {
+		if (!seenPosts.has(post)) {
+			seenPosts.add(post);
+			newCount++;
+		}
+	});
+	if (newCount > 0) {
+		console.log(`[ContentTracker] Detected ${newCount} new posts. Sending increment.`);
+		chrome.runtime.sendMessage({ type: "increment", count: newCount });
+	} else {
+		console.log('[ContentTracker] No new posts detected.');
+	}
 }
-
-// Initial feed check
-checkNewPosts();
-
-// Watch for dynamically loaded posts (infinite scroll, lazy loading)
-const postObserver = new MutationObserver(checkNewPosts);
-postObserver.observe(document.body, { childList: true, subtree: true });
-
-// --- 3. FUNCTION: TRACK VIDEO CONTENT ---
 
 function trackVideos() {
-  const videos = document.querySelectorAll("video");
-
-  videos.forEach((video) => {
-    // Only attach listeners once
-    if (video.dataset.trackerAttached) return;
-    video.dataset.trackerAttached = "true";
-
-    // --- A. Count on user play ---
-    video.addEventListener("play", () => {
-      console.log("[Content Tracker] Video played, incrementing counter by 1.");
-      chrome.runtime.sendMessage({ type: "increment", count: 1 });
-    });
-
-    // --- B. Count on visibility (for autoplay videos) ---
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          console.log("[Content Tracker] Video became visible, incrementing counter by 1.");
-          chrome.runtime.sendMessage({ type: "increment", count: 1 });
-          observer.unobserve(entry.target); // count only once
-        }
-      });
-    }, { threshold: 0.5 }); // 50% visible
-
-    observer.observe(video);
-  });
+	const videos = document.querySelectorAll("video");
+	videos.forEach((video) => {
+		if (video.dataset.trackerAttached) return;
+		video.dataset.trackerAttached = "true";
+		video.addEventListener("play", () => {
+			console.log('[ContentTracker] Video played, incrementing.');
+			chrome.runtime.sendMessage({ type: "increment", count: 1 });
+		});
+		const observer = new IntersectionObserver((entries) => {
+			entries.forEach((entry) => {
+				if (entry.isIntersecting) {
+					console.log('[ContentTracker] Video became visible, incrementing.');
+					chrome.runtime.sendMessage({ type: "increment", count: 1 });
+					observer.unobserve(entry.target);
+				}
+			});
+		}, { threshold: 0.5 });
+		observer.observe(video);
+	});
 }
 
-// Initial video check
-trackVideos();
+function runAllTrackers() {
+	checkNewPosts();
+	trackVideos();
+}
 
-// Watch for dynamically added videos
+// Wait for DOMContentLoaded, then run trackers
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', runAllTrackers);
+} else {
+	runAllTrackers();
+}
+
+// Observe DOM changes for new posts/videos
+const postObserver = new MutationObserver(checkNewPosts);
+postObserver.observe(document.body, { childList: true, subtree: true });
 const videoObserver = new MutationObserver(trackVideos);
 videoObserver.observe(document.body, { childList: true, subtree: true });
+
+// Listen for SPA navigation (pushState/replaceState/popstate)
+function listenForSpaNavigation(callback) {
+	let lastUrl = location.href;
+	new MutationObserver(() => {
+		const url = location.href;
+		if (url !== lastUrl) {
+			lastUrl = url;
+			setTimeout(callback, 500); // Give DOM time to update
+		}
+	}).observe(document.body, { childList: true, subtree: true });
+	window.addEventListener('popstate', () => setTimeout(callback, 500));
+}
+listenForSpaNavigation(runAllTrackers);
