@@ -19,12 +19,16 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Handle reset button click
+// Handle reset button click - acts like user posted content
 document.getElementById("reset").addEventListener("click", () => {
-  console.log("[Popup] Reset button clicked. Resetting count to 0...");
-
-  chrome.storage.local.set({ count: 0 }, () => {
-    console.log("[Popup] count successfully reset in storage.");
-    document.getElementById("count").innerText = 0;
+  console.log("[Popup] Reset button clicked");
+  // Send reset message to background script (same as when user posts)
+  chrome.runtime.sendMessage({ type: "resetCount" }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error("[Popup] Error resetting count:", chrome.runtime.lastError.message);
+    } else {
+      console.log("[Popup] Count reset successfully:", response);
+      document.getElementById("count").innerText = 0;
+    }
   });
 });

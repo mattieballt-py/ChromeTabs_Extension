@@ -220,8 +220,9 @@ const postDetectionConfigs = {
     modalSelector: 'div[role="dialog"]'
   },
   'reddit.com': {
-    buttonSelectors: ['button[type="submit"]'],
-    buttonTextMatch: /post|submit/i
+    // Detect both post submissions and question posts
+    buttonSelectors: ['button[type="submit"]', 'button:not([type])'],
+    buttonTextMatch: /post|submit|save/i
   },
   'twitter.com': {
     buttonSelectors: ['div[data-testid="tweetButtonInline"]', 'button[data-testid="tweetButton"]'],
@@ -240,8 +241,9 @@ const postDetectionConfigs = {
     buttonTextMatch: /comment/i
   },
   'quora.com': {
-    buttonSelectors: ['button[type="submit"]'],
-    buttonTextMatch: /add answer|post/i
+    // Detect both answer posting and question asking
+    buttonSelectors: ['button[type="submit"]', 'button:not([type])', 'div[role="button"]'],
+    buttonTextMatch: /add answer|post|add question|ask question|submit/i
   }
 };
 
@@ -308,6 +310,22 @@ chrome.storage.sync.get({ maskThreshold: 10 }, (data) => {
 // Observe DOM changes
 const observer = new MutationObserver(debounceMaskAndCountPosts);
 observer.observe(document.body, { childList: true, subtree: true });
+
+// Listen for messages from background script
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "unmaskPosts") {
+    console.log('[Masker][DEBUG] Received unmask message. Clearing masks and resetting count.');
+    // Clear the seen posts to start fresh
+    seenPostIds.clear();
+    observedPostIds.clear();
+    // Remove all masking
+    const posts = document.querySelectorAll(`.${MASK_CLASS}`);
+    posts.forEach(post => post.classList.remove(MASK_CLASS));
+    console.log(`[Masker][DEBUG] Unmasked ${posts.length} posts`);
+    if (sendResponse) sendResponse({ success: true });
+    return true;
+  }
+});
 
 // Initial run
 window.addEventListener('DOMContentLoaded', () => {
