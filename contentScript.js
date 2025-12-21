@@ -30,56 +30,6 @@ const siteConfigs = [
     domain: 'twitter.com',
     selector: 'article[role="article"]',
     getId: post => {
-
-  // IntersectionObserver for accurate view detection
-  if (!window._maskerIntersectionObserver) {
-    window._maskerIntersectionObserver = new IntersectionObserver((entries) => {
-      let newCount = 0;
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          let post = entry.target;
-          let postId = null;
-          try {
-            postId = config.getId(post);
-          } catch (e) {
-            console.warn('[Masker][DEBUG] getId threw error:', e);
-          }
-          if (!postId && post.dataset && post.dataset.postId) {
-            postId = 'data-post-id:' + post.dataset.postId;
-          }
-          if (!postId) {
-            let text = post.innerText || post.textContent || '';
-            let hash = 0;
-            for (let i = 0; i < text.length; i++) {
-              hash = ((hash << 5) - hash) + text.charCodeAt(i);
-              hash |= 0;
-            }
-            postId = 'hash:' + hash;
-          }
-          if (!seenPostIds.has(postId) && !observedPostIds.has(postId)) {
-            seenPostIds.add(postId);
-            observedPostIds.add(postId);
-            newCount++;
-            console.log(`[Masker][DEBUG] New post viewed: ${postId}`);
-          }
-        }
-      });
-      if (newCount > 0) {
-        console.log(`[Masker][DEBUG] Detected ${newCount} newly viewed posts. Sending increment.`);
-        try {
-          chrome.runtime.sendMessage({ type: "increment", count: newCount }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.error('[Masker][DEBUG] Error sending message:', chrome.runtime.lastError.message);
-            } else {
-              console.log('[Masker][DEBUG] Message sent successfully. Response:', response);
-            }
-          });
-        } catch (e) {
-          console.error('[Masker][DEBUG] Exception sending message:', e);
-        }
-      }
-    }, { threshold: 0.5 }); // 50% of post must be visible
-  }
       const a = post.querySelector('a[href*="/status/"]');
       if (a && a.href) return 'tw:' + a.href;
       return null;
@@ -121,6 +71,61 @@ function getSiteConfig() {
     if (host.includes(config.domain)) return config;
   }
   return null;
+}
+
+// Initialize IntersectionObserver for accurate view detection
+function initializeIntersectionObserver() {
+  if (!window._maskerIntersectionObserver) {
+    const config = getSiteConfig();
+    window._maskerIntersectionObserver = new IntersectionObserver((entries) => {
+      let newCount = 0;
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          let post = entry.target;
+          let postId = null;
+          try {
+            if (config) {
+              postId = config.getId(post);
+            }
+          } catch (e) {
+            console.warn('[Masker][DEBUG] getId threw error:', e);
+          }
+          if (!postId && post.dataset && post.dataset.postId) {
+            postId = 'data-post-id:' + post.dataset.postId;
+          }
+          if (!postId) {
+            let text = post.innerText || post.textContent || '';
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) {
+              hash = ((hash << 5) - hash) + text.charCodeAt(i);
+              hash |= 0;
+            }
+            postId = 'hash:' + hash;
+          }
+          if (!seenPostIds.has(postId) && !observedPostIds.has(postId)) {
+            seenPostIds.add(postId);
+            observedPostIds.add(postId);
+            newCount++;
+            console.log(`[Masker][DEBUG] New post viewed: ${postId}`);
+          }
+        }
+      });
+      if (newCount > 0) {
+        console.log(`[Masker][DEBUG] Detected ${newCount} newly viewed posts. Sending increment.`);
+        try {
+          chrome.runtime.sendMessage({ type: "increment", count: newCount }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('[Masker][DEBUG] Error sending message:', chrome.runtime.lastError.message);
+            } else {
+              console.log('[Masker][DEBUG] Message sent successfully. Response:', response);
+            }
+          });
+        } catch (e) {
+          console.error('[Masker][DEBUG] Exception sending message:', e);
+        }
+      }
+    }, { threshold: 0.5 }); // 50% of post must be visible
+  }
 }
 
 function getPostIdentifier(post) {
@@ -299,6 +304,9 @@ function setupPostDetection() {
   }, true); // Use capture phase to catch events early
 }
 
+// Initialize IntersectionObserver first
+initializeIntersectionObserver();
+
 // Load threshold from storage
 chrome.storage.sync.get({ maskThreshold: 10 }, (data) => {
   threshold = data.maskThreshold;
@@ -330,6 +338,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // Initial run
 window.addEventListener('DOMContentLoaded', () => {
   console.log('[Masker][DEBUG] DOMContentLoaded fired. Injecting toggle and running mask/count.');
+  initializeIntersectionObserver();
   injectToggleButton();
   maskAndCountPosts();
 });
