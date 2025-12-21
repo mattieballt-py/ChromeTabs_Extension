@@ -5,7 +5,6 @@ let maskingEnabled = true;
 let threshold = 10;
 let debounceTimer = null;
 // Use a Set to track unique post identifiers (id, data attribute, or hash)
-let seenPostIds = new Set();
 let observedPostIds = new Set();
 const seenPostIds = new Set();
 
@@ -211,11 +210,99 @@ function injectToggleButton() {
   document.body.appendChild(btn);
 }
 
+// Site-specific post detection selectors
+const postDetectionConfigs = {
+  'instagram.com': {
+    // Detect "Share" button click in post creation modal
+    buttonSelectors: ['button[type="button"]'],
+    buttonTextMatch: /share|post/i,
+    // Alternative: detect when modal closes after posting
+    modalSelector: 'div[role="dialog"]'
+  },
+  'reddit.com': {
+    buttonSelectors: ['button[type="submit"]'],
+    buttonTextMatch: /post|submit/i
+  },
+  'twitter.com': {
+    buttonSelectors: ['div[data-testid="tweetButtonInline"]', 'button[data-testid="tweetButton"]'],
+    buttonTextMatch: /post|tweet/i
+  },
+  'x.com': {
+    buttonSelectors: ['div[data-testid="tweetButtonInline"]', 'button[data-testid="tweetButton"]'],
+    buttonTextMatch: /post|tweet/i
+  },
+  'linkedin.com': {
+    buttonSelectors: ['button.share-actions__primary-action'],
+    buttonTextMatch: /post/i
+  },
+  'youtube.com': {
+    buttonSelectors: ['ytd-button-renderer#submit-button'],
+    buttonTextMatch: /comment/i
+  },
+  'quora.com': {
+    buttonSelectors: ['button[type="submit"]'],
+    buttonTextMatch: /add answer|post/i
+  }
+};
+
+// Detect when user posts content
+function setupPostDetection() {
+  const host = window.location.hostname;
+  let config = null;
+
+  for (const domain in postDetectionConfigs) {
+    if (host.includes(domain)) {
+      config = postDetectionConfigs[domain];
+      break;
+    }
+  }
+
+  if (!config) {
+    console.log('[Masker][DEBUG] No post detection config for this site.');
+    return;
+  }
+
+  console.log('[Masker][DEBUG] Setting up post detection for', host);
+
+  // Use event delegation to catch dynamically added buttons
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+
+    // Check if clicked element or its parents match post button selectors
+    config.buttonSelectors.forEach(selector => {
+      const button = target.closest(selector);
+      if (button) {
+        const buttonText = button.innerText || button.textContent || '';
+        if (config.buttonTextMatch.test(buttonText)) {
+          console.log('[Masker][DEBUG] Post button clicked! Resetting count...');
+          // Reset count after a short delay to ensure post was successful
+          setTimeout(() => {
+            chrome.runtime.sendMessage({ type: "resetCount" }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error('[Masker][DEBUG] Error resetting count:', chrome.runtime.lastError.message);
+              } else {
+                console.log('[Masker][DEBUG] Count reset successfully:', response);
+                // Clear the seen posts to start fresh
+                seenPostIds.clear();
+                observedPostIds.clear();
+                // Remove masking
+                const posts = document.querySelectorAll(`.${MASK_CLASS}`);
+                posts.forEach(post => post.classList.remove(MASK_CLASS));
+              }
+            });
+          }, 1000);
+        }
+      }
+    });
+  }, true); // Use capture phase to catch events early
+}
+
 // Load threshold from storage
 chrome.storage.sync.get({ maskThreshold: 10 }, (data) => {
   threshold = data.maskThreshold;
   console.log('[Masker][DEBUG] Loaded threshold from storage:', threshold);
   maskAndCountPosts();
+  setupPostDetection();
 });
 
 // Observe DOM changes

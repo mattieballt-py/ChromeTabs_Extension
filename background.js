@@ -27,7 +27,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 chrome.runtime.onInstalled.addListener(() => {
   totalCount = 0;
-  chrome.storage.local.set({ totalCount: 0 }, () => {
+  chrome.storage.local.set({ count: 0 }, () => {
     console.log("[Background] Extension installed, counter reset.");
   });
+});
+
+// Handle reset messages from content script when user posts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "resetCount") {
+    chrome.storage.local.set({ count: 0 }, () => {
+      console.log("[BG][DEBUG] Count reset to 0 after user posted content");
+      if (sendResponse) sendResponse({ success: true, count: 0 });
+    });
+    return true;
+  }
 });

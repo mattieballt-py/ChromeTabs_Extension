@@ -3,7 +3,7 @@
     "version": "1.0",
     "name": "Content Tracker",
     "action": {
-        "default_icon": "bowl.png",
+        "default_icon": "PlusCreate.png",
         "default_popup": "index.html"
     },
     "description": "Tracks the number of posts you consume.",
