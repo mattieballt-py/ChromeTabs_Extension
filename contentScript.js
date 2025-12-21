@@ -1,4 +1,6 @@
 // contentScript.js: Mask social media posts when threshold is reached and count posts viewed
+console.log('[Masker][DEBUG] Content script loaded on:', window.location.hostname);
+
 const MASK_CLASS = 'masked-post-cover';
 const TOGGLE_ID = 'mask-toggle-btn';
 let maskingEnabled = true;
@@ -82,6 +84,13 @@ function initializeIntersectionObserver() {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           let post = entry.target;
+
+          // Don't count posts if they're masked (threshold reached)
+          if (maskingEnabled && post.classList.contains(MASK_CLASS)) {
+            console.log('[Masker][DEBUG] Skipping masked post (threshold reached)');
+            return;
+          }
+
           let postId = null;
           try {
             if (config) {
@@ -102,9 +111,8 @@ function initializeIntersectionObserver() {
             }
             postId = 'hash:' + hash;
           }
-          if (!seenPostIds.has(postId) && !observedPostIds.has(postId)) {
+          if (!seenPostIds.has(postId)) {
             seenPostIds.add(postId);
-            observedPostIds.add(postId);
             newCount++;
             console.log(`[Masker][DEBUG] New post viewed: ${postId}`);
           }
@@ -157,22 +165,30 @@ function maskAndCountPosts() {
   }
   console.log(`[Masker][DEBUG] Using selector: ${selectorUsed}`);
   console.log(`[Masker][DEBUG] Found ${posts.length} main feed posts on screen.`);
-  // Masking logic: only mask main feed posts
-  if (maskingEnabled && posts.length >= threshold) {
-    posts.forEach(post => {
-      if (!post.classList.contains(MASK_CLASS)) {
-        post.classList.add(MASK_CLASS);
-        console.log('[Masker][DEBUG] Masked post:', config.getId(post));
-      }
-    });
-  } else {
-    posts.forEach(post => {
-      if (post.classList.contains(MASK_CLASS)) {
-        post.classList.remove(MASK_CLASS);
-        console.log('[Masker][DEBUG] Unmasked post:', config.getId(post));
-      }
-    });
-  }
+
+  // Check actual viewed count from storage to decide masking
+  chrome.storage.local.get(['count'], (result) => {
+    const viewedCount = result.count || 0;
+    console.log(`[Masker][DEBUG] Current viewed count: ${viewedCount}, threshold: ${threshold}`);
+
+    // Masking logic: mask if threshold reached
+    if (maskingEnabled && viewedCount >= threshold) {
+      console.log('[Masker][DEBUG] Threshold reached, masking all posts');
+      posts.forEach(post => {
+        if (!post.classList.contains(MASK_CLASS)) {
+          post.classList.add(MASK_CLASS);
+          console.log('[Masker][DEBUG] Masked post:', config.getId(post));
+        }
+      });
+    } else {
+      posts.forEach(post => {
+        if (post.classList.contains(MASK_CLASS)) {
+          post.classList.remove(MASK_CLASS);
+          console.log('[Masker][DEBUG] Unmasked post:', config.getId(post));
+        }
+      });
+    }
+  });
   // Counting logic: only observe real posts
   posts.forEach(post => {
     let postId = null;
@@ -181,7 +197,17 @@ function maskAndCountPosts() {
     } catch (e) {}
     if (!postId) return; // Only observe real posts
     if (!observedPostIds.has(postId)) {
-      window._maskerIntersectionObserver.observe(post);
+      // Ensure observer exists before using it
+      if (!window._maskerIntersectionObserver) {
+        console.warn('[Masker][DEBUG] IntersectionObserver not initialized yet, initializing now...');
+        initializeIntersectionObserver();
+      }
+      if (window._maskerIntersectionObserver) {
+        window._maskerIntersectionObserver.observe(post);
+        observedPostIds.add(postId);
+      } else {
+        console.error('[Masker][DEBUG] Failed to initialize IntersectionObserver');
+      }
     }
   });
 }
@@ -304,21 +330,6 @@ function setupPostDetection() {
   }, true); // Use capture phase to catch events early
 }
 
-// Initialize IntersectionObserver first
-initializeIntersectionObserver();
-
-// Load threshold from storage
-chrome.storage.sync.get({ maskThreshold: 10 }, (data) => {
-  threshold = data.maskThreshold;
-  console.log('[Masker][DEBUG] Loaded threshold from storage:', threshold);
-  maskAndCountPosts();
-  setupPostDetection();
-});
-
-// Observe DOM changes
-const observer = new MutationObserver(debounceMaskAndCountPosts);
-observer.observe(document.body, { childList: true, subtree: true });
-
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "unmaskPosts") {
@@ -335,10 +346,45 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-// Initial run
-window.addEventListener('DOMContentLoaded', () => {
-  console.log('[Masker][DEBUG] DOMContentLoaded fired. Injecting toggle and running mask/count.');
+// Main initialization function
+function initialize() {
+  console.log('[Masker][DEBUG] Initializing content script...');
+
+  if (!document.body) {
+    console.log('[Masker][DEBUG] document.body not ready, waiting...');
+    setTimeout(initialize, 100);
+    return;
+  }
+
+  console.log('[Masker][DEBUG] document.body ready, starting initialization');
+
+  // Initialize IntersectionObserver
   initializeIntersectionObserver();
+  console.log('[Masker][DEBUG] IntersectionObserver initialized');
+
+  // Load threshold from storage
+  chrome.storage.sync.get({ maskThreshold: 10 }, (data) => {
+    threshold = data.maskThreshold;
+    console.log('[Masker][DEBUG] Loaded threshold from storage:', threshold);
+    maskAndCountPosts();
+    setupPostDetection();
+  });
+
+  // Observe DOM changes for dynamic content (Instagram is an SPA)
+  const observer = new MutationObserver(debounceMaskAndCountPosts);
+  observer.observe(document.body, { childList: true, subtree: true });
+  console.log('[Masker][DEBUG] MutationObserver started');
+
+  // Inject toggle button
   injectToggleButton();
-  maskAndCountPosts();
-});
+  console.log('[Masker][DEBUG] Toggle button injected');
+}
+
+// Start initialization
+if (document.readyState === 'loading') {
+  console.log('[Masker][DEBUG] Document still loading, waiting for DOMContentLoaded');
+  document.addEventListener('DOMContentLoaded', initialize);
+} else {
+  console.log('[Masker][DEBUG] Document already loaded, initializing now');
+  initialize();
+}
