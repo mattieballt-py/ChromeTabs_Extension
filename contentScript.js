@@ -158,13 +158,28 @@ function maskAndCountPosts() {
   }
   let posts = document.querySelectorAll(config.selector);
   let selectorUsed = config.selector;
+  console.log(`[Masker][DEBUG] Using selector: ${selectorUsed}`);
+  console.log(`[Masker][DEBUG] Found ${posts.length} articles initially`);
+
   // For Instagram, only mask/count main feed posts with a real permalink
   if (config.domain === 'instagram.com') {
-    posts = Array.from(posts).filter(post => !!config.getId(post));
+    console.log('[Masker][DEBUG] Instagram detected, filtering posts...');
+    const allPosts = Array.from(posts);
+    console.log(`[Masker][DEBUG] Total articles found: ${allPosts.length}`);
+
+    // Log first few posts for debugging
+    allPosts.slice(0, 3).forEach((post, index) => {
+      const id = config.getId(post);
+      console.log(`[Masker][DEBUG] Article ${index + 1} ID:`, id);
+      const link = post.querySelector('a[href^="/p/"]');
+      console.log(`[Masker][DEBUG] Article ${index + 1} has /p/ link:`, !!link, link?.href);
+    });
+
+    posts = allPosts.filter(post => !!config.getId(post));
     selectorUsed = config.selector + ' (filtered for real posts)';
+    console.log(`[Masker][DEBUG] After filtering: ${posts.length} valid posts`);
   }
-  console.log(`[Masker][DEBUG] Using selector: ${selectorUsed}`);
-  console.log(`[Masker][DEBUG] Found ${posts.length} main feed posts on screen.`);
+  console.log(`[Masker][DEBUG] Final count: ${posts.length} main feed posts on screen.`);
 
   // Check actual viewed count from storage to decide masking
   chrome.storage.local.get(['count'], (result) => {
@@ -189,27 +204,40 @@ function maskAndCountPosts() {
       });
     }
   });
+  // Ensure IntersectionObserver is initialized before observing posts
+  if (!window._maskerIntersectionObserver) {
+    console.warn('[Masker][DEBUG] IntersectionObserver not initialized, initializing now...');
+    initializeIntersectionObserver();
+  }
+
   // Counting logic: only observe real posts
-  posts.forEach(post => {
+  console.log(`[Masker][DEBUG] Starting to observe ${posts.length} posts...`);
+  let observedCount = 0;
+  posts.forEach((post, index) => {
     let postId = null;
     try {
       postId = config.getId(post);
-    } catch (e) {}
-    if (!postId) return; // Only observe real posts
+    } catch (e) {
+      console.warn(`[Masker][DEBUG] Error getting ID for post ${index}:`, e);
+    }
+    if (!postId) {
+      console.log(`[Masker][DEBUG] Post ${index} has no ID, skipping`);
+      return; // Only observe real posts
+    }
     if (!observedPostIds.has(postId)) {
-      // Ensure observer exists before using it
-      if (!window._maskerIntersectionObserver) {
-        console.warn('[Masker][DEBUG] IntersectionObserver not initialized yet, initializing now...');
-        initializeIntersectionObserver();
-      }
       if (window._maskerIntersectionObserver) {
+        console.log(`[Masker][DEBUG] Observing post ${index} with ID: ${postId}`);
         window._maskerIntersectionObserver.observe(post);
         observedPostIds.add(postId);
+        observedCount++;
       } else {
         console.error('[Masker][DEBUG] Failed to initialize IntersectionObserver');
       }
+    } else {
+      console.log(`[Masker][DEBUG] Post ${index} already observed: ${postId}`);
     }
   });
+  console.log(`[Masker][DEBUG] Now observing ${observedCount} new posts (total tracked: ${observedPostIds.size})`);
 }
 
 function debounceMaskAndCountPosts() {
