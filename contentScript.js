@@ -420,10 +420,89 @@ function setupPostDetection() {
   }, true); // Use capture phase to catch events early
 }
 
+// Show celebration animation when content is created
+function showCelebrationAnimation() {
+  // Create animation overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'content-tracker-celebration';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 999999;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px 60px;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    animation: slideIn 0.5s ease-out, fadeOut 0.5s ease-in 2.5s;
+    pointer-events: none;
+  `;
+
+  overlay.innerHTML = `
+    <div style="font-size: 60px; margin-bottom: 15px; animation: bounce 0.6s ease-in-out infinite alternate;">
+      🎉
+    </div>
+    <div style="color: white; font-size: 24px; font-weight: bold; font-family: 'Segoe UI', sans-serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+      Content Created!
+    </div>
+    <div style="color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 10px; font-family: 'Segoe UI', sans-serif;">
+      Counter reset to 0
+    </div>
+  `;
+
+  // Add CSS animations
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+      }
+    }
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+      }
+    }
+    @keyframes bounce {
+      from {
+        transform: translateY(0px);
+      }
+      to {
+        transform: translateY(-10px);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.body.appendChild(overlay);
+
+  // Remove after animation completes
+  setTimeout(() => {
+    overlay.remove();
+    style.remove();
+  }, 3000);
+}
+
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "unmaskPosts") {
     console.log('[Masker][DEBUG] Received unmask message. Clearing masks and resetting count.');
+
+    // Show animation if requested
+    if (message.showAnimation) {
+      showCelebrationAnimation();
+    }
+
     // Clear the seen posts to start fresh
     seenPostIds.clear();
     observedPostIds.clear();

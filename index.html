@@ -4,38 +4,132 @@
     <title>Content Tracker</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
-        padding: 15px;
-        width: 220px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 20px;
+        width: 320px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin: 0;
+      }
+      .container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
       }
       h2 {
-        margin: 0 0 10px 0;
-        font-size: 18px;
+        margin: 0 0 15px 0;
+        font-size: 22px;
+        text-align: center;
+        font-weight: 600;
+      }
+      .current-count {
+        text-align: center;
+        margin: 20px 0;
+      }
+      .current-count .label {
+        font-size: 14px;
+        opacity: 0.9;
+        margin-bottom: 5px;
       }
       #count {
-        font-size: 24px;
+        font-size: 48px;
         font-weight: bold;
-        margin: 10px 0;
+        display: block;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      .stats-section {
+        margin: 20px 0;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+      }
+      .stats-section h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .stat-item:last-child {
+        border-bottom: none;
+      }
+      .stat-date {
+        font-size: 13px;
+        opacity: 0.9;
+      }
+      .stat-value {
+        font-weight: bold;
+        font-size: 16px;
+      }
+      .stat-created {
+        font-size: 11px;
+        opacity: 0.8;
+        margin-left: 8px;
+        color: #90EE90;
+      }
+      .no-data {
+        text-align: center;
+        opacity: 0.7;
+        font-size: 13px;
+        padding: 10px 0;
       }
       button {
-        padding: 6px 12px;
+        width: 100%;
+        padding: 12px;
         border: none;
-        border-radius: 6px;
-        background-color: #007bff;
-        color: white;
-        font-size: 14px;
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.9);
+        color: #667eea;
+        font-size: 15px;
+        font-weight: 600;
         cursor: pointer;
+        margin-top: 15px;
+        transition: all 0.3s ease;
       }
       button:hover {
-        background-color: #0056b3;
+        background-color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      .today-badge {
+        display: inline-block;
+        background: rgba(144, 238, 144, 0.3);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        margin-left: 6px;
       }
     </style>
   </head>
   <body>
-    <h2>Content Consumed</h2>
-    <p id="count">Loading...</p>
-    <button id="reset">Reset Count</button>
+    <div class="container">
+      <h2>📊 Content Tracker</h2>
 
-  <script src="popup.js"></script>
+      <div class="current-count">
+        <div class="label">Today's Consumption</div>
+        <span id="count">Loading...</span>
+      </div>
+
+      <div class="stats-section">
+        <h3>📈 Last 7 Days</h3>
+        <div id="statsContainer">
+          <div class="no-data">Loading statistics...</div>
+        </div>
+      </div>
+
+      <button id="reset">🎉 Reset Count (Posted Content!)</button>
+    </div>
+
+    <script src="popup.js"></script>
   </body>
 </html>
