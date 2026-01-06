@@ -104,6 +104,15 @@ function getSiteConfig() {
   return null;
 }
 
+// Check if extension context is still valid
+function isExtensionContextValid() {
+  try {
+    return chrome.runtime && chrome.runtime.id;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Initialize IntersectionObserver for accurate view detection
 function initializeIntersectionObserver() {
   if (!window._maskerIntersectionObserver) {
@@ -149,16 +158,30 @@ function initializeIntersectionObserver() {
       });
       if (newCount > 0) {
         console.log(`[Masker][DEBUG] Detected ${newCount} newly viewed posts. Sending increment.`);
+
+        // Check if extension context is still valid before sending message
+        if (!isExtensionContextValid()) {
+          console.warn('[Masker][DEBUG] Extension context invalidated. Please reload the page.');
+          return;
+        }
+
         try {
           chrome.runtime.sendMessage({ type: "increment", count: newCount }, (response) => {
             if (chrome.runtime.lastError) {
               console.error('[Masker][DEBUG] Error sending message:', chrome.runtime.lastError.message);
+              // If context is invalidated, stop trying to send messages
+              if (chrome.runtime.lastError.message.includes('Extension context invalidated')) {
+                console.warn('[Masker][DEBUG] Extension was reloaded. Please refresh this page.');
+              }
             } else {
               console.log('[Masker][DEBUG] Message sent successfully. Response:', response);
             }
           });
         } catch (e) {
           console.error('[Masker][DEBUG] Exception sending message:', e);
+          if (e.message.includes('Extension context invalidated')) {
+            console.warn('[Masker][DEBUG] Extension was reloaded. Please refresh this page.');
+          }
         }
       }
     }, { threshold: 0.5 }); // 50% of post must be visible
@@ -367,19 +390,29 @@ function setupPostDetection() {
           console.log('[Masker][DEBUG] Post button clicked! Resetting count...');
           // Reset count after a short delay to ensure post was successful
           setTimeout(() => {
-            chrome.runtime.sendMessage({ type: "resetCount" }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.error('[Masker][DEBUG] Error resetting count:', chrome.runtime.lastError.message);
-              } else {
-                console.log('[Masker][DEBUG] Count reset successfully:', response);
-                // Clear the seen posts to start fresh
-                seenPostIds.clear();
-                observedPostIds.clear();
-                // Remove masking
-                const posts = document.querySelectorAll(`.${MASK_CLASS}`);
-                posts.forEach(post => post.classList.remove(MASK_CLASS));
-              }
-            });
+            // Check if extension context is still valid
+            if (!isExtensionContextValid()) {
+              console.warn('[Masker][DEBUG] Extension context invalidated. Cannot reset count.');
+              return;
+            }
+
+            try {
+              chrome.runtime.sendMessage({ type: "resetCount" }, (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error('[Masker][DEBUG] Error resetting count:', chrome.runtime.lastError.message);
+                } else {
+                  console.log('[Masker][DEBUG] Count reset successfully:', response);
+                  // Clear the seen posts to start fresh
+                  seenPostIds.clear();
+                  observedPostIds.clear();
+                  // Remove masking
+                  const posts = document.querySelectorAll(`.${MASK_CLASS}`);
+                  posts.forEach(post => post.classList.remove(MASK_CLASS));
+                }
+              });
+            } catch (e) {
+              console.error('[Masker][DEBUG] Exception resetting count:', e);
+            }
           }, 1000);
         }
       }
