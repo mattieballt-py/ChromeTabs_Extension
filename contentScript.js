@@ -14,12 +14,25 @@ const seenPostIds = new Set();
 const siteConfigs = [
   {
     domain: 'instagram.com',
-    selector: 'main article', // Only main feed posts
+    selector: 'main article, div[role="presentation"] > div > div > div > article', // Main feed posts - multiple selectors for Instagram's changing structure
     getId: post => {
-      // Only count if it's a real post (has a permalink)
-      const a = post.querySelector('a[href^="/p/"]');
+      // Try multiple ways to find the post link
+      // Method 1: Direct /p/ link (most common)
+      let a = post.querySelector('a[href^="/p/"]');
       if (a && a.href) return 'ig:' + a.href;
-      return null; // Don't count if no permalink
+
+      // Method 2: Look for /reel/ links (reels in feed)
+      a = post.querySelector('a[href^="/reel/"]');
+      if (a && a.href) return 'ig:' + a.href;
+
+      // Method 3: Look deeper in nested structure
+      a = post.querySelector('a[href*="/p/"]');
+      if (a && a.href) return 'ig:' + a.href;
+
+      a = post.querySelector('a[href*="/reel/"]');
+      if (a && a.href) return 'ig:' + a.href;
+
+      return null; // Don't count if no permalink found
     },
     fallbackSelector: null // No fallback, only main feed posts
   },
