@@ -66,10 +66,26 @@ const siteConfigs = [
   },
   {
     domain: 'youtube.com',
-    selector: 'ytd-video-renderer, ytd-grid-video-renderer',
+    selector: 'ytd-video-renderer, ytd-grid-video-renderer, ytd-reel-video-renderer, ytd-reel-item-renderer',
     getId: post => {
-      const a = post.querySelector('a#video-title');
+      // Method 1: Regular video title (for standard videos in list/grid view)
+      let a = post.querySelector('a#video-title');
       if (a && a.href) return 'yt:' + a.href;
+
+      // Method 2: Shorts - look for /shorts/ URL pattern
+      a = post.querySelector('a[href*="/shorts/"]');
+      if (a && a.href) return 'yt:' + a.href;
+
+      // Method 3: Fallback - any video link with /watch
+      a = post.querySelector('a[href*="/watch"]');
+      if (a && a.href) return 'yt:' + a.href;
+
+      // Method 4: Look for any anchor in the post as last resort
+      a = post.querySelector('a[href^="/"]');
+      if (a && a.href && (a.href.includes('/shorts/') || a.href.includes('/watch'))) {
+        return 'yt:' + a.href;
+      }
+
       return null;
     }
   },
